@@ -15,7 +15,7 @@ def load_data(path):
     return pd.read_csv(path)
 
 # Load and preprocess data
-df = load_data("data/portsmouth_housing_data.csv")
+df = load_data("data/housing_data.csv")
 df.fillna(0, inplace=True)  # Replace NaN with 0 for numeric calculations
 
 # Define housing goals
