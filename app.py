@@ -373,14 +373,10 @@ with tabs[1]:
     
     # Add a column for affordability category
     def categorize_affordability(ratio):
-        if ratio >= 80:
-            return "High Affordability (80%+)"
-        elif ratio >= 30:
-            return "Moderate Affordability (30-79%)"
-        elif ratio > 0:
-            return "Low Affordability (1-29%)"
+        if ratio > 0:            
+            return "Affordable"
         else:
-            return "Market Rate Only (0%)"
+            return "Market Rate Only"
     
     affordable_table["Affordability Category"] = affordable_table["Affordability Ratio"].apply(categorize_affordability)
     
@@ -466,13 +462,9 @@ with tabs[2]:
             return f'<a href="{url}" target="_blank">{text}</a>'
 
         # Color mapping based on affordability
-        def get_marker_color(row):
-            if row["Affordability Ratio"] >= 80:
-                return "orange"  # High affordability
-            elif row["Affordability Ratio"] >= 30:
-                return "yellow"  # Moderate affordability
-            elif row["Affordability Ratio"] > 0:
-                return "green"  # Low affordability
+        def get_marker_color(row):            
+            if row["Affordability Ratio"] > 0:
+                return "orange"  # affordability
             else:
                 return "blue"    # Market rate only
             
@@ -546,18 +538,10 @@ with tabs[2]:
         #### Affordability Levels:
         <div style="display: flex; align-items: center; margin-bottom: 10px;">
             <div style="width: 20px; height: 20px; background-color: orange; border-radius: 50%; margin-right: 10px;"></div>
-            <div>High Affordability (80%+)</div>
+            <div>Permanently Affordable</div>
         </div>
         <div style="display: flex; align-items: center; margin-bottom: 10px;">
-            <div style="width: 20px; height: 20px; background-color: yellow; border-radius: 50%; margin-right: 10px;"></div>
-            <div>Moderate (30-79%)</div>
-        </div>
-        <div style="display: flex; align-items: center; margin-bottom: 10px;">
-            <div style="width: 20px; height: 20px; background-color: green; border-radius: 50%; margin-right: 10px;"></div>
-            <div>Low (1-29%)</div>
-        </div>
-        <div style="display: flex; align-items: center; margin-bottom: 10px;">
-            <div style="width: 20px; height: 20px; background-color: blue; border-radius: 50%; margin-right: 10px;"></div>
+            <div style="width: 20px; height: 20px; background-color: skyblue; border-radius: 50%; margin-right: 10px;"></div>
             <div>Market Rate Only</div>
         </div>
         """, unsafe_allow_html=True)
