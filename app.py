@@ -16,7 +16,12 @@ CSV_URL = (
     "export?format=csv&gid=751536993"
 )
 
-@st.cache_data
+@st.cache_data(
+    ttl=60,            # invalidate after 60 secs
+    max_entries=500,     # keep the cache from ballooning
+    show_spinner="Loading ..."
+)
+
 def load_data(path):
     return pd.read_csv(path)
 
@@ -163,16 +168,7 @@ with tabs[0]:
             proj_years = np.array(range(int(yearly_data["Move-in Year"].max()) + 1, TARGET_YEAR + 1))
             
             if len(proj_years) > 0:
-                rental_projections = rental_poly1d(proj_years)
-                
-                # Add projected line
-                rental_fig.add_trace(go.Scatter(
-                    x=proj_years,
-                    y=rental_projections,
-                    mode="lines",
-                    name="Projected Rental Trend",
-                    line=dict(color="lightblue", width=3, dash="dot")
-                ))
+                rental_projections = rental_poly1d(proj_years)                            
                 
                 # Calculate and display projected deficit
                 projected_rental_by_2030 = rental_poly1d(TARGET_YEAR)
@@ -251,16 +247,7 @@ with tabs[0]:
             
             if len(proj_years) > 0:
                 owner_projections = owner_poly1d(proj_years)
-                
-                # Add projected line
-                owner_fig.add_trace(go.Scatter(
-                    x=proj_years,
-                    y=owner_projections,
-                    mode="lines",
-                    name="Projected Owner Trend",
-                    line=dict(color="lightgreen", width=3, dash="dot")
-                ))
-                
+                                
                 # Calculate and display projected deficit
                 projected_owner_by_2030 = owner_poly1d(TARGET_YEAR)
                 projected_owner_deficit = max(0, OWNER_GOAL - projected_owner_by_2030)
