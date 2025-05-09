@@ -10,12 +10,23 @@ from datetime import datetime
 # Page configuration for better layout
 st.set_page_config(layout="wide")
 
+CSV_URL = (
+    "https://docs.google.com/spreadsheets/d/"
+    "1Ua0vVNtBNV5AR-tURo62lneVpeWCzN1J5LnkezCu2E4/"
+    "export?format=csv&gid=751536993"
+)
+
 @st.cache_data
 def load_data(path):
     return pd.read_csv(path)
 
 # Load and preprocess data
-df = load_data("data/housing_data.csv")
+
+def load_data(url: str) -> pd.DataFrame:
+    """Download the latest data straight from Google Sheets."""
+    return pd.read_csv(url)
+
+df = load_data(CSV_URL)
 df.fillna(0, inplace=True)  # Replace NaN with 0 for numeric calculations
 
 # Define housing goals
@@ -25,7 +36,7 @@ TOTAL_GOAL = RENTAL_GOAL + OWNER_GOAL
 TARGET_YEAR = 2030
 CURRENT_YEAR = datetime.now().year
 
-st.title("Portsmouth Housing Dashboard")
+st.title("Portsmouth, NH Housing Dashboard")
 st.subheader(f"Progress towards 2030 Housing Goals")
 
 # Create columns with consistent unit counts
@@ -37,8 +48,8 @@ df["Affordable Units"] = df["Affordable Rentals"] + df["Affordable Owner"]
 df["Market Rate Units"] = df["Market Rate Rentals"] + df["Market Rate Owner"]
 df["Affordability Ratio"] = (df["Affordable Units"] / df["Total units"] * 100).fillna(0).round(1)
 
-# Convert move-in date to year and ensure it's numeric
-df["Move-in Year"] = pd.to_numeric(df["Move-in date"], errors='coerce')
+# Convert Expected finish to year and ensure it's numeric
+df["Move-in Year"] = pd.to_numeric(df["Expected finish"], errors='coerce')
 
 # Filter out rows with invalid years
 df_valid = df[~pd.isna(df["Move-in Year"])].copy()
@@ -368,7 +379,7 @@ with tabs[1]:
     # Create a sorted dataframe for the table
     affordable_table = df[~(df["Total units"] == 0)].copy()
     affordable_table = affordable_table[["Project", "Total units", "Market Rate Units", 
-                                         "Affordable Units", "Affordability Ratio", "Status", "Move-in date"]]
+                                         "Affordable Units", "Affordability Ratio", "Status", "Expected finish"]]
     affordable_table = affordable_table.sort_values("Affordability Ratio", ascending=False)
     
     # Add a column for affordability category
@@ -383,7 +394,7 @@ with tabs[1]:
     # Display the table
     st.dataframe(
         affordable_table[["Project", "Total units", "Affordable Units", 
-                          "Affordability Ratio", "Affordability Category", "Status", "Move-in date"]],
+                          "Affordability Ratio", "Affordability Category", "Status", "Expected finish"]],
         column_config={
             "Project": "Project Name",
             "Total units": "Total Units",
@@ -394,7 +405,7 @@ with tabs[1]:
             ),
             "Affordability Category": "Category",
             "Status": "Status",
-            "Move-in date": "Expected Completion"
+            "Expected finish": "Expected Completion"
         },
         height=400
     )
@@ -488,7 +499,7 @@ with tabs[2]:
                 <h4>{row['Project']}</h4>
                 <b>Address:</b> {safe_str(row['Property address'])}<br>
                 <b>Status:</b> {safe_str(row['Status'])}<br>
-                <b>Move-in:</b> {safe_str(row['Move-in date'])}<br>
+                <b>Move-in:</b> {safe_str(row['Expected finish'])}<br>
                 <hr>
                 <b>Housing Units:</b><br>
                 <table style="width:100%">
