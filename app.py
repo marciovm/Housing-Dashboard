@@ -517,41 +517,6 @@ st.dataframe(
     height=400
 )
 
-# Affordable Housing Units Over Time
-st.subheader("Affordable Housing Units Over Time")
-
-# Create chart showing affordable vs market rate over time
-affordability_time_fig = go.Figure()
-
-# Cumulative market rate units
-affordability_time_fig.add_trace(go.Scatter(
-    x=yearly_complete["Move-in Year"],
-    y=yearly_complete["Cumulative Market Rate"],
-    mode="lines+markers",
-    name="Cumulative Market Rate Units",
-    line=dict(color="#1E88E5", width=3)
-))
-
-# Cumulative affordable units
-affordability_time_fig.add_trace(go.Scatter(
-    x=yearly_complete["Move-in Year"],
-    y=yearly_complete["Cumulative Affordable"],
-    mode="lines+markers",
-    name="Cumulative Affordable Units",
-    line=dict(color="#FFC107", width=3)
-))
-
-affordability_time_fig.update_layout(
-    title="Cumulative Affordable vs. Market Rate Units Over Time",
-    xaxis_title="Year",
-    yaxis_title="Number of Units",
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-    height=450
-)
-
-st.plotly_chart(affordability_time_fig, use_container_width=True)
-
-
 # Portsmouth Real Estate Market Trends (5-Year Overview)
 st.header("Portsmouth Real Estate Market Trends (5-Year Overview)")
 
