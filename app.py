@@ -76,7 +76,7 @@ st.caption(
 # --- 1️⃣  Top metrics row
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    st.metric("Rental Units Planned",
+    st.metric("Rental Units Planned / Goal for 2030",
               f"{planned_rental:,} / {RENTAL_GOAL}",
               f"{(planned_rental/RENTAL_GOAL)*100:0.1f}%")
 with col2:
