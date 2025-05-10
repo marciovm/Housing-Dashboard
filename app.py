@@ -42,7 +42,8 @@ TARGET_YEAR = 2030
 CURRENT_YEAR = datetime.now().year
 
 st.title("Portsmouth, NH Housing Dashboard")
-st.subheader(f"Progress towards 2030 Housing Goals")
+st.subheader(f"Progress towards 2030 Housing Goal")
+st.caption(f"Based on [PHA-commissioned 2022 study](https://www.portsmouthnh.gov/sites/default/files/2024-01/RKG_Portsmouth-Market-Analysis-FINAL_2022.pdf)")
 
 # Create columns with consistent unit counts
 df["Rental Units"] = df["Market Rate Rentals"] + df["Affordable Rentals"]
