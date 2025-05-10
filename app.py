@@ -16,7 +16,12 @@ CSV_URL = (
     "export?format=csv&gid=751536993"
 )
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(
+    ttl=120,            # invalidate after 2 min
+    max_entries=500,     # keep the cache from ballooning
+    show_spinner="Loading ..."
+)
+
 def load_data(url: str) -> pd.DataFrame:
     return pd.read_csv(url)
 
@@ -67,10 +72,9 @@ rental_deficit            = max(0, RENTAL_GOAL - planned_rental)
 # ------------------------------------------------------------------
 # -----  UI  -----
 st.title("Portsmouth, NH Housing Dashboard")
-st.caption(
-    "Tracking progress toward Portsmouth’s **rental housing goal** from the "
-    "[2022 PHA‑commissioned housing study]"
-    "(https://www.portsmouthhousing.org/_files/ugd/64e8bc_2e66b26dbb564a2980246fdee6907b78.pdf)."
+st.subheader(
+    "Tracking rental unit goals based on the"
+    "[2022 PHA‑commissioned housing study](https://www.portsmouthhousing.org/_files/ugd/64e8bc_2e66b26dbb564a2980246fdee6907b78.pdf)."
 )
 
 # --- 1️⃣  Top metrics row
