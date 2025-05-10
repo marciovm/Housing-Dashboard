@@ -63,9 +63,9 @@ yearly_complete['Cumulative Rentals'] = yearly_complete['Rental Units'].cumsum()
 
 # ------------------------------------------------------------------
 # Planned progress numbers (user‑provided)
-planned_rental = 1591  # sum of market + non‑market rentals planned
 current_market_rental     = int(df_valid['Market Rate Rentals'].sum())
 current_affordable_rental = int(df_valid['Affordable Rentals'].sum())
+planned_rental = current_market_rental + current_affordable_rental
 rental_deficit            = max(0, RENTAL_GOAL - planned_rental)
 
 
