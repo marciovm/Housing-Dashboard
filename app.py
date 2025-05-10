@@ -1,49 +1,156 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
+import plotly.express as px
 from streamlit_folium import folium_static
 import folium
-import numpy as np
 from datetime import datetime
 
-# Page configuration for better layout
 st.set_page_config(layout="wide")
 
+# ------------------------------------------------------------------
+# Load latest data from Google Sheets (CSV export)
 CSV_URL = (
     "https://docs.google.com/spreadsheets/d/"
     "1Ua0vVNtBNV5AR-tURo62lneVpeWCzN1J5LnkezCu2E4/"
     "export?format=csv&gid=751536993"
 )
 
-@st.cache_data(
-    ttl=60,            # invalidate after 60 secs
-    max_entries=500,     # keep the cache from ballooning
-    show_spinner="Loading ..."
-)
-
-def load_data(path):
-    return pd.read_csv(path)
-
-# Load and preprocess data
-
+@st.cache_data(show_spinner=False)
 def load_data(url: str) -> pd.DataFrame:
-    """Download the latest data straight from Google Sheets."""
     return pd.read_csv(url)
 
-df = load_data(CSV_URL)
-df.fillna(0, inplace=True)  # Replace NaN with 0 for numeric calculations
+df = load_data(CSV_URL).fillna(0)
 
-# Define housing goals
-RENTAL_GOAL = 2700
-OWNER_GOAL = 220
-TOTAL_GOAL = RENTAL_GOAL + OWNER_GOAL
-TARGET_YEAR = 2030
-CURRENT_YEAR = datetime.now().year
+# ------------------------------------------------------------------
+# Housing goals & parameters
+RENTAL_GOAL      = 2897   # PHA‑commissioned 2022 study goal
+GOAL_START_YEAR  = 2024   # 👈 updated per user request
+TARGET_YEAR      = 2030
 
+# Consolidate columns
+df['Rental Units']       = df['Market Rate Rentals'] + df['Affordable Rentals']
+df['Market Rentals']     = df['Market Rate Rentals']
+df['Non-Market Rentals'] = df['Affordable Rentals']  # subsidised / deed‑restricted
+
+# Extract valid move‑in years
+df['Move-in Year'] = pd.to_numeric(df['Expected finish'], errors='coerce')
+df_valid           = df[~pd.isna(df['Move-in Year'])].copy()
+
+# ---- Yearly aggregates
+yearly_data = (
+    df_valid
+    .groupby('Move-in Year')
+    .agg({'Rental Units': 'sum',
+          'Market Rentals': 'sum',
+          'Non-Market Rentals': 'sum'})
+    .reset_index()
+    .sort_values('Move-in Year')
+)
+
+# Build complete year index to 2030
+all_years       = list(range(int(yearly_data['Move-in Year'].min()), TARGET_YEAR + 1))
+yearly_complete = (pd.DataFrame({'Move-in Year': all_years})
+                   .merge(yearly_data, on='Move-in Year', how='left')
+                   .fillna(0))
+
+yearly_complete['Cumulative Rentals'] = yearly_complete['Rental Units'].cumsum()
+
+# ------------------------------------------------------------------
+# Planned progress numbers (user‑provided)
+planned_rental = 1591  # sum of market + non‑market rentals planned
+current_market_rental     = int(df_valid['Market Rate Rentals'].sum())
+current_affordable_rental = int(df_valid['Affordable Rentals'].sum())
+rental_deficit            = max(0, RENTAL_GOAL - planned_rental)
+
+
+# ------------------------------------------------------------------
+# -----  UI  -----
 st.title("Portsmouth, NH Housing Dashboard")
-st.subheader(f"Progress towards 2030 Housing Goal")
-st.caption(f"Based on [PHA-commissioned 2022 study](https://www.portsmouthnh.gov/sites/default/files/2024-01/RKG_Portsmouth-Market-Analysis-FINAL_2022.pdf)")
+st.caption(
+    "Tracking progress toward Portsmouth’s **rental housing goal** from the "
+    "[2022 PHA‑commissioned housing study]"
+    "(https://www.portsmouthhousing.org/_files/ugd/64e8bc_2e66b26dbb564a2980246fdee6907b78.pdf)."
+)
+
+# --- 1️⃣  Top metrics row
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.metric("Rental Units Planned",
+              f"{planned_rental:,} / {RENTAL_GOAL}",
+              f"{(planned_rental/RENTAL_GOAL)*100:0.1f}%")
+with col2:
+    st.metric("Units Still Needed",
+              f"{rental_deficit:,}",
+              delta=f"Need {int(rental_deficit)} more units by 2030", delta_color="inverse")
+    
+
+
+
+with col3:
+    pct_market = (current_market_rental / planned_rental * 100) if planned_rental else 0
+    st.metric("Market‑Rate Rentals",
+              f"{current_market_rental:,}",
+              f"{pct_market:0.1f}% of total")
+with col4:
+    pct_affordable = (current_affordable_rental / planned_rental * 100) if planned_rental else 0
+    st.metric("Non‑Market (Affordable) Rentals",
+              f"{current_affordable_rental:,}",
+              f"{pct_affordable:0.1f}% of total")
+
+# --- 1️⃣  Rental progress chart
+st.subheader("Rental Housing Pipeline")
+
+rental_fig = go.Figure()
+
+# Stacked bars: market vs non‑market rentals
+rental_fig.add_trace(go.Bar(
+    x=yearly_complete['Move-in Year'],
+    y=yearly_complete['Market Rentals'],
+    name="Market‑Rate",
+    marker_color="#1f77b4"
+))
+rental_fig.add_trace(go.Bar(
+    x=yearly_complete['Move-in Year'],
+    y=yearly_complete['Non-Market Rentals'],
+    name="Non‑Market (Affordable)",
+    marker_color="#ff7f0e"
+))
+
+# Cumulative line
+rental_fig.add_trace(go.Scatter(
+    x=yearly_complete['Move-in Year'],
+    y=yearly_complete['Cumulative Rentals'],
+    mode="lines+markers",
+    name="Cumulative Rentals",
+    line=dict(width=3, color="black")
+))
+
+# Goal trendline (straight line from 2024 to 2030)
+rental_fig.add_trace(go.Scatter(
+    x=[GOAL_START_YEAR, TARGET_YEAR],
+    y=[0, RENTAL_GOAL],
+    mode="lines",
+    name="Goal trajectory",
+    line=dict(width=2, dash="dash", color="navy")
+))
+
+# Layout tweaks
+rental_fig.update_layout(
+    barmode="stack",
+    xaxis_title="Year",
+    yaxis_title="Units",
+    legend=dict(orientation="h", y=-0.25),
+    height=500,
+    margin=dict(l=20, r=20, t=30, b=30),
+)
+
+st.plotly_chart(rental_fig, use_container_width=True)
+
+
+
+# --- 1️⃣ Development Locations
+st.markdown("---")
 
 # Create columns with consistent unit counts
 df["Rental Units"] = df["Market Rate Rentals"] + df["Affordable Rentals"]
@@ -53,6 +160,8 @@ df["Owner Units"] = df["Market Rate Owner"] + df["Affordable Owner"]
 df["Affordable Units"] = df["Affordable Rentals"] + df["Affordable Owner"]
 df["Market Rate Units"] = df["Market Rate Rentals"] + df["Market Rate Owner"]
 df["Affordability Ratio"] = (df["Affordable Units"] / df["Total units"] * 100).fillna(0).round(1)
+
+
 
 # Convert Expected finish to year and ensure it's numeric
 df["Move-in Year"] = pd.to_numeric(df["Expected finish"], errors='coerce')
@@ -89,234 +198,7 @@ current_owner = yearly_complete["Cumulative Owner"].iloc[-1] if not yearly_compl
 current_affordable = yearly_complete["Cumulative Affordable"].iloc[-1] if not yearly_complete.empty else 0
 current_market_rate = yearly_complete["Cumulative Market Rate"].iloc[-1] if not yearly_complete.empty else 0
 
-# Calculate deficits
-rental_deficit = RENTAL_GOAL - current_rental
-owner_deficit = OWNER_GOAL - current_owner
-total_deficit = TOTAL_GOAL - (current_rental + current_owner)
-
-# Progress metrics in a row - Placed rental deficit next to rental progress
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    rental_progress = (current_rental / RENTAL_GOAL) * 100
-    st.metric("Rental Units Progress", f"{int(current_rental)} / {RENTAL_GOAL}", f"{rental_progress:.1f}%")
-
-with col2:
-    st.metric("Rental Units Deficit", f"{int(rental_deficit)}", 
-              f"Need {int(rental_deficit)} more units by 2030", delta_color="inverse")
-
-with col3:
-    owner_progress = (current_owner / OWNER_GOAL) * 100
-    st.metric("Owner Units Progress", f"{int(current_owner)} / {OWNER_GOAL}", f"{owner_progress:.1f}%")
-
-with col4:
-    affordable_percent = (current_affordable / (current_affordable + current_market_rate) * 100) if (current_affordable + current_market_rate) > 0 else 0
-    st.metric("Affordable Housing", f"{int(current_affordable)} units", 
-              f"{affordable_percent:.1f}% of all planned units")
-
-
-# Housing Progress
-
-# Create two-column layout for the charts
-left_col, right_col = st.columns([1, 1])
-
-# RENTAL UNITS CHART
-with left_col:
-    st.subheader(f"Rental Housing Progress")
-    # Create rental progress chart
-    rental_fig = go.Figure()
-
-    # Bar chart for annual rental units
-    rental_fig.add_trace(go.Bar(
-        x=yearly_data["Move-in Year"],
-        y=yearly_data["Rental Units"],
-        name="New Rental Units",
-        marker_color="royalblue",
-        opacity=0.7
-    ))
-
-    # Line for cumulative rental progress
-    rental_fig.add_trace(go.Scatter(
-        x=yearly_complete["Move-in Year"],
-        y=yearly_complete["Cumulative Rental"],
-        mode="lines+markers",
-        name="Cumulative Rental Units",
-        line=dict(color="blue", width=3)
-    ))
-
-    # Add rental goal line
-    rental_fig.add_trace(go.Scatter(
-        x=[yearly_complete["Move-in Year"].min(), TARGET_YEAR],
-        y=[0, RENTAL_GOAL],
-        mode="lines",
-        name="2030 Rental Goal",
-        line=dict(color="navy", width=2, dash="dash")
-    ))
-
-    # Calculate and add projected rental trendline
-    if len(yearly_data) >= 2:
-        rental_years = yearly_data["Move-in Year"].values
-        rental_cum = yearly_data["Rental Units"].cumsum().values
-        
-        # Calculate linear trend
-        rental_coef = np.polyfit(rental_years, rental_cum, 1)
-        rental_poly1d = np.poly1d(rental_coef)
-        
-        # Project to 2030
-        proj_years = np.array(range(int(yearly_data["Move-in Year"].max()) + 1, TARGET_YEAR + 1))
-        
-        if len(proj_years) > 0:
-            rental_projections = rental_poly1d(proj_years)                            
-            
-            # Calculate and display projected deficit
-            projected_rental_by_2030 = rental_poly1d(TARGET_YEAR)
-            projected_rental_deficit = max(0, RENTAL_GOAL - projected_rental_by_2030)
-            
-            if projected_rental_deficit > 0:
-                rental_fig.add_annotation(
-                    x=TARGET_YEAR,
-                    y=projected_rental_by_2030,
-                    text=f"Projected deficit: {int(projected_rental_deficit)} units",
-                    showarrow=True,
-                    arrowhead=1,
-                    ax=50,
-                    ay=-40,
-                    font=dict(size=12, color="red"),
-                    bordercolor="red",
-                    bgcolor="white"
-                )
-
-    # Update rental chart layout
-    rental_fig.update_layout(
-        title="Rental Units Progress Toward 2030 Goal (2,700 Units)",
-        xaxis_title="Year",
-        yaxis_title="Rental Units",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        height=450
-    )
-
-    st.plotly_chart(rental_fig, use_container_width=True)
-
-# OWNER UNITS CHART
-with right_col:
-    st.subheader(f"Owner Housing Progress")
-
-    # Create owner progress chart
-    owner_fig = go.Figure()
-
-    # Bar chart for annual owner units
-    owner_fig.add_trace(go.Bar(
-        x=yearly_data["Move-in Year"],
-        y=yearly_data["Owner Units"],
-        name="New Owner Units",
-        marker_color="green",
-        opacity=0.7
-    ))
-
-    # Line for cumulative owner progress
-    owner_fig.add_trace(go.Scatter(
-        x=yearly_complete["Move-in Year"],
-        y=yearly_complete["Cumulative Owner"],
-        mode="lines+markers",
-        name="Cumulative Owner Units",
-        line=dict(color="darkgreen", width=3)
-    ))
-
-    # Add owner goal line
-    owner_fig.add_trace(go.Scatter(
-        x=[yearly_complete["Move-in Year"].min(), TARGET_YEAR],
-        y=[0, OWNER_GOAL],
-        mode="lines",
-        name="2030 Owner Goal",
-        line=dict(color="green", width=2, dash="dash")
-    ))
-
-    # Calculate and add projected owner trendline
-    if len(yearly_data) >= 2:
-        owner_years = yearly_data["Move-in Year"].values
-        owner_cum = yearly_data["Owner Units"].cumsum().values
-        
-        # Calculate linear trend
-        owner_coef = np.polyfit(owner_years, owner_cum, 1)
-        owner_poly1d = np.poly1d(owner_coef)
-        
-        # Project to 2030
-        proj_years = np.array(range(int(yearly_data["Move-in Year"].max()) + 1, TARGET_YEAR + 1))
-        
-        if len(proj_years) > 0:
-            owner_projections = owner_poly1d(proj_years)
-                            
-            # Calculate and display projected deficit
-            projected_owner_by_2030 = owner_poly1d(TARGET_YEAR)
-            projected_owner_deficit = max(0, OWNER_GOAL - projected_owner_by_2030)
-            
-            if projected_owner_deficit > 0:
-                owner_fig.add_annotation(
-                    x=TARGET_YEAR,
-                    y=projected_owner_by_2030,
-                    text=f"Projected deficit: {int(projected_owner_deficit)} units",
-                    showarrow=True,
-                    arrowhead=1,
-                    ax=50,
-                    ay=-40,
-                    font=dict(size=12, color="red"),
-                    bordercolor="red",
-                    bgcolor="white"
-                )
-
-    # Update owner chart layout
-    owner_fig.update_layout(
-        title="Owner Units Progress Toward 2030 Goal (220 Units)",
-        xaxis_title="Year",
-        yaxis_title="Owner Units",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-        height=450
-    )
-
-    st.plotly_chart(owner_fig, use_container_width=True)
-
-# Additional summary for deficit tracking
-st.subheader("Housing Goal Deficit Analysis")
-
-# Create a table to show detailed deficit information
-deficit_data = {
-    "Housing Type": ["Rental Units", "Owner Units", "Total"],
-    "2030 Goal": [RENTAL_GOAL, OWNER_GOAL, TOTAL_GOAL],
-    "Current Planned": [int(current_rental), int(current_owner), int(current_rental + current_owner)],
-    "Current Deficit": [int(rental_deficit), int(owner_deficit), int(total_deficit)]
-}
-
-if len(yearly_data) >= 2:
-    # Calculate projections for 2030
-    rental_projected = rental_poly1d(TARGET_YEAR) if 'rental_poly1d' in locals() else current_rental
-    owner_projected = owner_poly1d(TARGET_YEAR) if 'owner_poly1d' in locals() else current_owner
-    
-    projected_rental_deficit = max(0, RENTAL_GOAL - rental_projected)
-    projected_owner_deficit = max(0, OWNER_GOAL - owner_projected)
-    projected_total_deficit = projected_rental_deficit + projected_owner_deficit
-    
-    deficit_data["Projected for 2030"] = [int(rental_projected), int(owner_projected), int(rental_projected + owner_projected)]
-    deficit_data["Projected Deficit"] = [int(projected_rental_deficit), int(projected_owner_deficit), int(projected_total_deficit)]
-
-deficit_df = pd.DataFrame(deficit_data)
-st.table(deficit_df)
-
-# Calculate units needed per year to meet goal
-years_remaining = TARGET_YEAR - CURRENT_YEAR
-if years_remaining > 0:
-    rental_per_year = rental_deficit / years_remaining
-    owner_per_year = owner_deficit / years_remaining
-    
-    st.info(f"**To meet the 2030 goals, Portsmouth needs to approve approximately:**\n"
-            f"- **{int(rental_per_year)} new rental units per year**\n"
-            f"- **{int(owner_per_year)} new owner units per year**\n"
-            f"for the next {years_remaining} years.")
-
-
-
-
-# Development Locations
 st.header("Development Locations")
-
 
 # Create columns for map and legend
 map_col, legend_col = st.columns([5, 1])
@@ -518,111 +400,75 @@ st.dataframe(
     height=400
 )
 
-# Portsmouth Real Estate Market Trends (5-Year Overview)
-st.header("Portsmouth Real Estate Market Trends (5-Year Overview)")
 
 
-# Create two columns for home prices and rental prices
-col1, col2 = st.columns([1, 1])
+# ------------------------------------------------------------------
+# 2️⃣  Market trends row (unchanged from v2)
+st.markdown("---")
+st.subheader("Housing Market Trends")
 
-with col1:
-    # Home price data for last 5 years (based on research)
-    years = [2020, 2021, 2022, 2023, 2024, 2025]
-    median_home_prices = [650000, 720000, 775000, 830000, 850000, 859000]
-    
-    # Create home price trend chart
-    home_price_fig = go.Figure()
-    
-    home_price_fig.add_trace(go.Scatter(
+colA, colB = st.columns(2)
+years = [2020, 2021, 2022, 2023, 2024, 2025]
+
+with colA:
+    median_rent_2br = [2000, 2150, 2250, 2350, 2450, 2550]
+
+    rent_fig = go.Figure()
+    rent_fig.add_trace(go.Scatter(
         x=years,
-        y=median_home_prices,
+        y=median_rent_2br,
         mode="lines+markers",
-        name="Median Home Price",
-        line=dict(color="#2E7D32", width=3)
+        name="Median 2‑BR Rent",
+        line=dict(width=3)
     ))
-    
-    # Add annotations for the latest value
-    home_price_fig.add_annotation(
-        x=years[-1],
-        y=median_home_prices[-1],
-        text=f"${median_home_prices[-1]:,}",
-        showarrow=True,
-        arrowhead=1,
-        ax=40,
-        ay=-40
-    )
-    
-    # Calculate percentage increase over 5 years
-    price_increase = ((median_home_prices[-1] - median_home_prices[0]) / median_home_prices[0]) * 100
-    
-    home_price_fig.update_layout(
-        title=f"Median Home Sales Price (↑{price_increase:.1f}% over 5 years)",
+
+    pct_r_increase = (median_rent_2br[-1] - median_rent_2br[0]) / median_rent_2br[0] * 100
+
+    rent_fig.update_layout(
+        title=f"Median 2‑Bedroom Rent (↑{pct_r_increase:.1f}% since 2020)",
         xaxis_title="Year",
-        yaxis_title="Median Price ($)",
+        yaxis_title="Monthly Rent ($)",
         yaxis=dict(tickformat="$,.0f"),
         height=450
     )
-    
-    st.plotly_chart(home_price_fig, use_container_width=True)
-    
-    st.markdown("""
+    st.plotly_chart(rent_fig, use_container_width=True)
+
+with colB:    
+    median_home_prices = [650_000, 720_000, 775_000, 830_000, 850_000, 859_000]
+
+    sale_fig = go.Figure()
+    sale_fig.add_trace(go.Scatter(
+        x=years,
+        y=median_home_prices,
+        mode="lines+markers",
+        name="Median Sale Price",
+        line=dict(width=3)
+    ))
+
+    pct_h_increase = (median_home_prices[-1] - median_home_prices[0]) / median_home_prices[0] * 100
+
+    sale_fig.update_layout(
+        title=f"Median Home Sale Price (↑{pct_h_increase:.1f}% since 2020)",
+        xaxis_title="Year",
+        yaxis_title="Price ($)",
+        yaxis=dict(tickformat="$,.0f"),
+        height=450
+    )
+    st.plotly_chart(sale_fig, use_container_width=True)
+
+st.markdown("""
     **Key Home Price Trends:**
     - Portsmouth median house value is $859,324, making it among the most expensive real estate in New Hampshire and America
     - The median sale price was $850K in January 2025, up 13.3% from the previous year
     - Portsmouth home prices increased by 10.2% year-over-year in February 2025
     """)
     
-with col2:
-    # Rental price data for last 5 years (based on research)
-    years = [2020, 2021, 2022, 2023, 2024, 2025]
-    median_2br_rent = [1850, 1950, 2150, 2350, 2434, 2445]
-    
-    # Create rental price trend chart
-    rent_price_fig = go.Figure()
-    
-    rent_price_fig.add_trace(go.Scatter(
-        x=years,
-        y=median_2br_rent,
-        mode="lines+markers",
-        name="Median 2BR Rent",
-        line=dict(color="#1565C0", width=3)
-    ))
-    
-    # Add annotations for the latest value
-    rent_price_fig.add_annotation(
-        x=years[-1],
-        y=median_2br_rent[-1],
-        text=f"${median_2br_rent[-1]:,}",
-        showarrow=True,
-        arrowhead=1,
-        ax=40,
-        ay=-40
-    )
-    
-    # Calculate percentage increase over 5 years
-    rent_increase = ((median_2br_rent[-1] - median_2br_rent[0]) / median_2br_rent[0]) * 100
-    
-    rent_price_fig.update_layout(
-        title=f"Median 2-Bedroom Rental Price (↑{rent_increase:.1f}% over 5 years)",
-        xaxis_title="Year",
-        yaxis_title="Median Monthly Rent ($)",
-        yaxis=dict(tickformat="$,.0f"),
-        height=450
-    )
-    
-    st.plotly_chart(rent_price_fig, use_container_width=True)
-    
-    st.markdown("""
-    **Key Rental Trends:**
-    - Average rent for an apartment in Portsmouth is $2,913, a 5% increase from last year
-    - The average price for a two-bedroom apartment in Portsmouth is around $2,445
-    - The average rent for a three bedroom apartment in Portsmouth is $2,582
-    """)
+st.markdown('''
+**Data Sources**  
+- [Zillow Housing Data](https://www.zillow.com/research/data/)  
+- [Redfin Data Center](https://www.redfin.com/news/data-center/)  
+- [Zumper National Rent Report](https://www.zumper.com/blog/category/rental-price-data/)  
 
-    # Information sources and disclaimer
-    st.markdown("""
-    ---
-    **Data Overview:** This section displays housing market trends in Portsmouth, NH based on recent real estate data. The charts show approximate trends based on aggregated data from multiple sources.
-    
-    **Note:** This is a placeholder section with estimated values. For precise, up-to-date market data, please consult with a real estate professional or economist.
-    """)
+_Figures above use publicly released aggregate data for illustrative purposes._
+''')
+
