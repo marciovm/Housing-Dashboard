@@ -72,8 +72,8 @@ rental_deficit            = max(0, RENTAL_GOAL - planned_rental)
 # ------------------------------------------------------------------
 # -----  UI  -----
 st.title("Portsmouth, NH Housing Dashboard")
-st.subheader(
-    "Tracking rental unit goals based on the"
+st.caption(
+    "Tracking rental unit goals based on the "
     "[2022 PHA‑commissioned housing study](https://www.portsmouthhousing.org/_files/ugd/64e8bc_2e66b26dbb564a2980246fdee6907b78.pdf)."
 )
 
@@ -149,7 +149,10 @@ rental_fig.update_layout(
     margin=dict(l=20, r=20, t=30, b=30),
 )
 
-st.plotly_chart(rental_fig, use_container_width=True)
+st.plotly_chart(rental_fig, 
+                use_container_width=True,
+                config={
+    "displayModeBar": False,},)
 
 
 
