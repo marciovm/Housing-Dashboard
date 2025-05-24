@@ -1,0 +1,14 @@
+name: Ping Portsmouth Housing Dashboard
+
+# 1 a.m. America/New_York is 05 a.m. UTC
+on:
+  schedule:
+    - cron: '0 5 * * *'   # minute hour day month weekday
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Curl the dashboard
+        run: |
+          curl -s -o /dev/null -w "%{http_code}\n" https://progressportsmouth.com/housing-dashboard

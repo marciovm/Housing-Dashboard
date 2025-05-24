@@ -218,7 +218,10 @@ with map_col:
         location=[43.07, -70.79], 
         zoom_start=13,
         tiles="CartoDB positron",  # Neutral grayscale base map
-    )
+          config={    
+    "staticPlot": True
+    },)
+    
 
     # Function to handle None/NaN values
     def safe_str(value):
