@@ -14,4 +14,4 @@ jobs:
     steps:
       - name: Curl the dashboard
         run: |
-          curl -s -o /dev/null -w "%{http_code}\n" https://progressportsmouth.com/housing-dashboard
+          curl -s -o /dev/null -w "%{http_code}\n" https://portsmouth-housing-dashboard.streamlit.app/
