@@ -39,7 +39,7 @@ df['Market Rentals']     = df['Market Rate Rentals']
 df['Non-Market Rentals'] = df['Affordable Rentals']  # subsidised / deed‑restricted
 
 # Extract valid move‑in years
-df['Move-in Year'] = pd.to_numeric(df['Expected finish'], errors='coerce')
+df['Move-in Year'] = pd.to_numeric(df['Occupancy'], errors='coerce')
 df_valid           = df[~pd.isna(df['Move-in Year'])].copy()
 
 # ---- Yearly aggregates
@@ -172,8 +172,8 @@ df["Affordability Ratio"] = (df["Affordable Units"] / df["Total units"] * 100).f
 
 
 
-# Convert Expected finish to year and ensure it's numeric
-df["Move-in Year"] = pd.to_numeric(df["Expected finish"], errors='coerce')
+# Convert Occupancy to year and ensure it's numeric
+df["Move-in Year"] = pd.to_numeric(df["Occupancy"], errors='coerce')
 
 # Filter out rows with invalid years
 df_valid = df[~pd.isna(df["Move-in Year"])].copy()
@@ -218,9 +218,7 @@ with map_col:
         location=[43.07, -70.79], 
         zoom_start=13,
         tiles="CartoDB positron",  # Neutral grayscale base map
-          config={    
-    "staticPlot": True
-    },)
+        )
     
 
     # Function to handle None/NaN values
@@ -262,7 +260,7 @@ with map_col:
             <h4>{row['Project']}</h4>
             <b>Address:</b> {safe_str(row['Property address'])}<br>
             <b>Status:</b> {safe_str(row['Status'])}<br>
-            <b>Move-in:</b> {safe_str(row['Expected finish'])}<br>
+            <b>Move-in:</b> {safe_str(row['Occupancy'])}<br>
             <hr>
             <b>Housing Units:</b><br>
             <table style="width:100%">
@@ -381,7 +379,7 @@ st.subheader("Housing Projects by Affordability")
 # Create a sorted dataframe for the table
 affordable_table = df[~(df["Total units"] == 0)].copy()
 affordable_table = affordable_table[["Project", "Total units", "Market Rate Units", 
-                                     "Affordable Units", "Affordability Ratio", "Status", "Expected finish"]]
+                                     "Affordable Units", "Affordability Ratio", "Status", "Occupancy"]]
 affordable_table = affordable_table.sort_values("Affordability Ratio", ascending=False)
 
 # Add a column for affordability category
@@ -396,7 +394,7 @@ affordable_table["Affordability Category"] = affordable_table["Affordability Rat
 # Display the table
 st.dataframe(
     affordable_table[["Project", "Total units", "Affordable Units", 
-                      "Affordability Ratio", "Affordability Category", "Status", "Expected finish"]],
+                      "Affordability Ratio", "Affordability Category", "Status", "Occupancy"]],
     column_config={
         "Project": "Project Name",
         "Total units": "Total Units",
@@ -407,7 +405,7 @@ st.dataframe(
         ),
         "Affordability Category": "Category",
         "Status": "Status",
-        "Expected finish": "Expected Completion"
+        "Occupancy": "Expected Completion"
     },
     height=400
 )
