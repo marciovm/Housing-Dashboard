@@ -2,8 +2,11 @@ name: Ping Portsmouth Housing Dashboard
 
 # 1 a.m. America/New_York is 05 a.m. UTC
 on:
-  schedule:
-    - cron: '0 5 * * *'   # minute hour day month weekday
+  schedule:    
+    - cron: '0 5  * * *'   # 05:00 UTC
+    - cron: '0 11 * * *'   # 11:00 UTC
+    - cron: '0 17 * * *'   # 17:00 UTC
+    - cron: '0 23 * * *'   # 23:00 UTC
 
 jobs:
   ping:
