@@ -34,25 +34,25 @@ jobs:
           TARGET_URL: "https://portsmouth-housing-dashboard.streamlit.app/"
         run: |
           python <<'PY'
-import asyncio, os
-from playwright.async_api import async_playwright
-
-URL = os.environ["TARGET_URL"]
-
-async def main():
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
-        await page.goto(URL, wait_until="load")
-        try:
-            # Look for the exact button text. Adjust timeout if needed.
-            button = await page.wait_for_selector("text=Yes, get this app back up!", timeout=8000)
-            await button.click()
-            print("Wake-up button clicked — app should be restarting.")
-        except Exception:
-            print("Wake-up button not found — app is likely already running or the page changed.")
-        finally:
-            await browser.close()
-
-asyncio.run(main())
-PY
+          import asyncio, os
+          from playwright.async_api import async_playwright
+          
+          URL = os.environ["TARGET_URL"]
+          
+          async def main():
+              async with async_playwright() as p:
+                  browser = await p.chromium.launch(headless=True)
+                  page = await browser.new_page()
+                  await page.goto(URL, wait_until="load")
+                  try:
+                      # Look for the exact button text. Adjust timeout if needed.
+                      button = await page.wait_for_selector("text=Yes, get this app back up!", timeout=8000)
+                      await button.click()
+                      print("Wake-up button clicked — app should be restarting.")
+                  except Exception:
+                      print("Wake-up button not found — app is likely already running or the page changed.")
+                  finally:
+                      await browser.close()
+          
+          asyncio.run(main())
+          PY
