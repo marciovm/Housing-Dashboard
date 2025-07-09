@@ -479,7 +479,7 @@ with colB:
     },)
 
 st.markdown("""
-    **Key Home Price Trends:**
+    **Key Home Price Trends**
     - Portsmouth median house value is $859,324, making it among the most expensive real estate in New Hampshire and America
     - The median sale price was $850K in January 2025, up 13.3% from the previous year
     - Portsmouth home prices increased by 10.2% year-over-year in February 2025
