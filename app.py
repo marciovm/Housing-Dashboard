@@ -351,7 +351,10 @@ with col1:
     )
     
     affordability_fig.update_layout(height=400)
-    st.plotly_chart(affordability_fig, use_container_width=True)
+    st.plotly_chart(affordability_fig, use_container_width=True, config={
+    "displayModeBar": False,    
+    "staticPlot": True
+    },)
     
 with col2:
     # Create a bar chart showing affordability by project status
@@ -371,7 +374,10 @@ with col2:
     )
 
     affordability_status_fig.update_layout(height=400)
-    st.plotly_chart(affordability_status_fig, use_container_width=True)
+    st.plotly_chart(affordability_status_fig, use_container_width=True, config={
+    "displayModeBar": False,    
+    "staticPlot": True
+    },)
 
 # Project table with affordability percentages
 st.subheader("Housing Projects by Affordability")
@@ -441,7 +447,10 @@ with colA:
         yaxis=dict(tickformat="$,.0f"),
         height=450
     )
-    st.plotly_chart(rent_fig, use_container_width=True)
+    st.plotly_chart(rent_fig, use_container_width=True, config={
+    "displayModeBar": False,    
+    "staticPlot": True
+    },)
 
 with colB:    
     median_home_prices = [650_000, 720_000, 775_000, 830_000, 850_000, 859_000]
@@ -464,7 +473,10 @@ with colB:
         yaxis=dict(tickformat="$,.0f"),
         height=450
     )
-    st.plotly_chart(sale_fig, use_container_width=True)
+    st.plotly_chart(sale_fig, use_container_width=True, config={
+    "displayModeBar": False,    
+    "staticPlot": True
+    },)
 
 st.markdown("""
     **Key Home Price Trends:**
