@@ -8,7 +8,7 @@ from datetime import datetime
 
 st.set_page_config(layout="wide")
 
-# ------------------------------------------------------------------
+# -----------------------------------------------------------------
 # Load latest data from Google Sheets (CSV export)
 CSV_URL = (
     "https://docs.google.com/spreadsheets/d/"
